@@ -2,357 +2,346 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>소독·방역 보고서 작성</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>소독·방역 보고서</title>
 <style>
   :root{
-    --navy:#0F4C81; --ink:#111; --line:#000; --muted:#6B7280;
-    --bg:#EEF1F5; --paper:#fff; --soft:#F2F4F7;
+    --navy:#0F4C81; --ink:#1a1a1a; --line:#000; --muted:#6B7280;
+    --bg:#EEF1F5; --paper:#fff; --soft:#F2F4F7; --on:#0F4C81;
     --font:'Malgun Gothic','맑은 고딕','Apple SD Gothic Neo',-apple-system,sans-serif;
   }
   *{box-sizing:border-box;}
-  body{margin:0;background:var(--bg);font-family:var(--font);color:var(--ink);-webkit-text-size-adjust:100%;}
+  html,body{margin:0;background:var(--bg);font-family:var(--font);color:var(--ink);-webkit-text-size-adjust:100%;}
 
-  /* ---------- 화면 전용 UI ---------- */
+  /* ===== 상단바 ===== */
   .appbar{position:sticky;top:0;z-index:50;background:var(--navy);color:#fff;
-    display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 16px;}
-  .appbar h1{font-size:16px;margin:0;font-weight:700;letter-spacing:-.2px;}
-  .appbar .acts{display:flex;gap:8px;}
-  .btn{border:0;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;}
-  .btn-primary{background:#fff;color:var(--navy);}
-  .btn-ghost{background:rgba(255,255,255,.16);color:#fff;}
-  .hint{max-width:820px;margin:14px auto 0;padding:0 16px;color:var(--muted);font-size:13px;line-height:1.6;}
-  .hint b{color:var(--navy);}
+    display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 16px;}
+  .appbar h1{font-size:17px;margin:0;font-weight:800;letter-spacing:-.3px;}
+  .appbar .date{font-size:12.5px;opacity:.9;}
 
-  .stage{max-width:820px;margin:14px auto 60px;padding:0 12px;}
-  /* A4 비율 종이 */
-  .page{background:var(--paper);box-shadow:0 2px 14px rgba(0,0,0,.12);margin:0 auto 18px;
-    width:100%;max-width:794px;padding:26px 28px;border:1px solid #e5e7eb;}
+  /* ===== 입력 화면 ===== */
+  .wrap{max-width:560px;margin:0 auto;padding:14px 12px 120px;}
+  .lead{color:var(--muted);font-size:13px;line-height:1.6;margin:6px 2px 14px;}
+  .card{background:var(--paper);border:1px solid #e3e7ec;border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.04);}
+  .card h2{margin:0 0 12px;font-size:16px;font-weight:800;color:var(--navy);display:flex;align-items:center;gap:8px;}
+  .card h2 .n{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--navy);color:#fff;font-size:13px;}
+  .sub{font-size:12.5px;color:var(--muted);margin:0 0 8px;font-weight:700;}
 
-  /* 입력 필드(인쇄 시 테두리 사라짐) */
-  .f{font-family:inherit;font-size:13px;color:var(--ink);border:0;border-bottom:1px dashed #9aa4b2;
-    background:#fbfcfe;padding:2px 4px;min-width:40px;}
-  .f:focus{outline:none;border-bottom:1.5px solid var(--navy);background:#fff;}
-  textarea.f{width:100%;border:1px dashed #9aa4b2;border-radius:4px;resize:vertical;line-height:1.5;}
+  /* 작업자 칩 */
+  .chiprow{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
+  .chip{border:1.5px solid #c5ccd6;border-radius:20px;padding:9px 16px;font-size:14px;cursor:pointer;background:#fff;color:#374151;user-select:none;font-weight:600;}
+  .chip.on{background:var(--navy);border-color:var(--navy);color:#fff;}
 
-  /* ---------- 공통 문서 표 ---------- */
-  table{border-collapse:collapse;width:100%;}
+  /* 사진 */
+  .photos{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;}
+  .ph-wrap{position:relative;}
+  .photos img{width:88px;height:88px;object-fit:cover;border:1px solid #cbd2da;border-radius:8px;display:block;}
+  .ph-del{position:absolute;top:-7px;right:-7px;width:22px;height:22px;border-radius:50%;
+    background:#e03131;color:#fff;border:0;font-size:13px;line-height:22px;cursor:pointer;}
+  .addbtn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:1.5px dashed var(--navy);color:var(--navy);
+    background:#f7fafd;border-radius:10px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;}
+  .addbtn input{display:none;}
+  .count{font-size:12px;color:var(--muted);font-weight:600;}
+
+  /* 하단 고정 버튼 */
+  .bottombar{position:fixed;left:0;right:0;bottom:0;z-index:60;background:#fff;border-top:1px solid #e3e7ec;
+    display:flex;gap:10px;padding:12px 14px;padding-bottom:calc(12px + env(safe-area-inset-bottom));max-width:560px;margin:0 auto;}
+  .btn{flex:1;border:0;border-radius:12px;padding:15px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;}
+  .btn-save{background:var(--navy);color:#fff;}
+  .btn-pdf{background:#fff;color:var(--navy);border:1.5px solid var(--navy);}
+  .btn:disabled{opacity:.5;}
+
+  /* 토스트 */
+  #toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#111;color:#fff;padding:13px 18px;border-radius:10px;font-size:14px;z-index:99;box-shadow:0 4px 16px rgba(0,0,0,.3);max-width:90%;text-align:center;opacity:0;transition:opacity .3s;pointer-events:none;}
+
+  /* ===== 양식(평소 숨김, PDF 보기 때만) ===== */
+  #formView{display:none;}
+  #formView.show{display:block;}
+  .form-actions{position:sticky;top:0;z-index:55;background:var(--navy);display:flex;gap:10px;padding:12px 14px;}
+  .form-actions .btn{background:#fff;color:var(--navy);}
+  .form-actions .btn.ghost{background:rgba(255,255,255,.16);color:#fff;}
+  .stage{max-width:820px;margin:14px auto 40px;padding:0 12px;}
+  .page{background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.12);margin:0 auto 18px;width:100%;max-width:794px;padding:26px 28px;border:1px solid #e5e7eb;overflow-x:auto;}
+  .doc table{border-collapse:collapse;width:100%;}
   .doc td,.doc th{border:1px solid var(--line);padding:6px 8px;font-size:12.5px;vertical-align:middle;}
   .doc .lbl{background:#f6f7f9;font-weight:700;text-align:center;white-space:nowrap;}
-  .center{text-align:center;} .right{text-align:right;}
-  .vmid{vertical-align:middle;}
-
-  /* 증명서 */
+  .center{text-align:center;}
   .law{font-size:10.5px;color:#222;margin:0 0 6px;}
-  .certno{font-size:12px;}
-  .title{text-align:center;font-size:30px;font-weight:800;letter-spacing:14px;margin:6px 0 16px;}
+  .title{text-align:center;font-size:28px;font-weight:800;letter-spacing:12px;margin:6px 0 16px;}
   .stamp-area{display:flex;justify-content:flex-end;font-size:11px;color:var(--muted);}
   .vlabel{writing-mode:vertical-rl;text-orientation:upright;letter-spacing:6px;font-weight:700;}
   .legal{font-size:12.5px;line-height:1.7;text-align:center;padding:14px 6px;}
   .signrow td{height:34px;}
-
-  /* 기록장 */
   .log-title{text-align:center;font-size:19px;font-weight:800;margin:0 0 12px;}
   .survey{white-space:pre-line;line-height:1.6;font-size:12px;}
   .section-h{text-align:center;font-weight:800;font-size:14px;background:#f0f3f7;}
-
-  /* 내역서 사진/작업자 */
-  .photos{display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start;}
-  .photos img{width:128px;height:96px;object-fit:cover;border:1px solid #cbd2da;border-radius:3px;}
-  .ph-wrap{position:relative;}
-  .ph-del{position:absolute;top:-7px;right:-7px;width:20px;height:20px;border-radius:50%;
-    background:#e03131;color:#fff;border:0;font-size:12px;line-height:20px;cursor:pointer;}
-  .addbtn{display:inline-flex;align-items:center;gap:6px;border:1.5px dashed var(--navy);color:var(--navy);
-    background:#fff;border-radius:8px;padding:10px 12px;font-size:13px;font-weight:700;cursor:pointer;}
-  .addbtn input{display:none;}
-  .loc{font-weight:700;text-align:center;white-space:pre-line;}
-  .chiprow{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin-top:4px;}
-  .chip{border:1px solid #b6c0cc;border-radius:14px;padding:3px 9px;font-size:11.5px;cursor:pointer;background:#fff;color:#374151;user-select:none;}
-  .chip.on{background:var(--navy);border-color:var(--navy);color:#fff;}
-  .worker-print{display:none;white-space:pre-line;}
   .fixed{white-space:pre-line;line-height:1.5;font-size:11.5px;}
+  .loc{font-weight:700;text-align:center;white-space:pre-line;}
+  .fphotos{display:flex;flex-wrap:wrap;gap:6px;}
+  .fphotos img{width:150px;height:112px;object-fit:cover;border:1px solid #cbd2da;border-radius:3px;}
+  .fworker{white-space:pre-line;font-weight:700;text-align:center;}
   .colw-loc{width:13%;} .colw-med{width:21%;} .colw-meth{width:21%;} .colw-worker{width:11%;}
 
-  /* ---------- 인쇄(=PDF 저장) ---------- */
+  /* 인쇄 = A4 그대로 */
   @media print{
     @page{size:A4 portrait;margin:10mm;}
     body{background:#fff;}
-    .appbar,.hint,.no-print{display:none !important;}
+    .appbar,.wrap,.bottombar,#toast,.form-actions,.no-print{display:none !important;}
+    #formView{display:block !important;}
     .stage{margin:0;padding:0;max-width:none;}
-    .page{box-shadow:none;border:0;margin:0;padding:0;max-width:none;width:auto;}
+    .page{box-shadow:none;border:0;margin:0;padding:0;max-width:none;width:auto;overflow:visible;}
     .page-cert{page-break-after:always;}
-    .f{border:0 !important;background:transparent !important;}
-    textarea.f{border:0 !important;}
-    .addbtn{display:none !important;}
-    .ph-del{display:none !important;}
-    .chip{display:none;}
-    .chip.on{display:none;}
-    .worker-print{display:block;font-weight:700;}
     tr{page-break-inside:avoid;}
-    .photos img{width:150px;height:112px;}
   }
 </style>
 </head>
 <body>
 
-<div class="appbar">
-  <h1>소독·방역 보고서</h1>
-  <div class="acts">
-    <button class="btn btn-ghost" onclick="resetAll()">초기화</button>
-    <button class="btn btn-ghost" id="saveBtn" onclick="saveToSheet()">기록 저장</button>
-    <button class="btn btn-primary" onclick="savePDF()">PDF 저장</button>
+<!-- ===== 입력 화면 ===== -->
+<div id="inputView">
+  <div class="appbar">
+    <h1>소독·방역 기록</h1>
+    <span class="date" id="todayLabel"></span>
+  </div>
+  <div class="wrap">
+    <p class="lead">장소별로 <b>현장 사진을 추가</b>하고 <b>작업자를 선택</b>한 뒤, 아래 <b>[기록 저장]</b>을 누르세요. 날짜는 오늘 날짜로 자동 입력됩니다.</p>
+    <div id="cards"></div>
+  </div>
+  <div class="bottombar">
+    <button class="btn btn-pdf" onclick="showForm()">PDF 보기</button>
+    <button class="btn btn-save" id="saveBtn" onclick="saveToSheet()">기록 저장</button>
   </div>
 </div>
 
-<div class="hint">
-  현장에서 찍은 사진을 <b>장소별로 필요한 만큼</b> 추가하고, 작업자를 선택하세요. 날짜는 오늘 날짜로 자동 입력됩니다.
-  다 채우면 <b>[PDF 저장]</b> → 미리보기에서 <b>대상을 "PDF로 저장"</b>으로 선택하면 파일이 만들어집니다.
-</div>
-
-<div class="stage">
-
-  <!-- ============ 1페이지: 소독증명서 ============ -->
-  <section class="page page-cert doc">
-    <div class="law">■ 감염병의 예방 및 관리에 관한 법률 시행규칙 [별지 제28호 서식]</div>
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-      <div class="certno">제 <input class="f" id="certno" value="" placeholder="CC-26-00-00" style="width:120px"> 호</div>
-      <div class="stamp-area">(KPCA 인증마크 / 직인 자리)</div>
-    </div>
-    <div class="title">소독증명서</div>
-
-    <table>
-      <tr>
-        <td class="lbl" rowspan="4" style="width:11%"><span class="vlabel">대상시설</span></td>
-        <td class="lbl" style="width:17%">상 호 (명칭)</td>
-        <td colspan="2"><input class="f" id="biz" value="새봄" style="width:90%"></td>
-        <td class="lbl" style="width:15%">실시면적(용적)</td>
-        <td style="width:18%"><input class="f" id="area" value="" placeholder="㎡ / 평" style="width:90%"></td>
-      </tr>
-      <tr>
-        <td class="lbl">소 재 지</td>
-        <td colspan="4"><input class="f" id="addr" value="경기도 수원시 팔달구 인계동 950-14번지 2층" style="width:96%"></td>
-      </tr>
-      <tr>
-        <td class="lbl" rowspan="2">관리(운영)자<br>확인</td>
-        <td class="lbl">직위</td>
-        <td colspan="3"><input class="f" id="mgrpos" style="width:96%"></td>
-      </tr>
-      <tr>
-        <td class="lbl">성명</td>
-        <td colspan="3"><input class="f" id="mgrname" style="width:70%"> <span style="float:right">(인)</span></td>
-      </tr>
-      <tr>
-        <td class="lbl">소독 기간</td>
-        <td colspan="5" class="center">
-          <input class="f date-start" style="width:150px"> ~ <input class="f date-end" style="width:150px">
-        </td>
-      </tr>
-      <tr>
-        <td class="lbl" rowspan="2"><span class="vlabel">소독내용</span></td>
-        <td class="lbl">종 류</td>
-        <td colspan="4" class="fixed">1. 살충소독 : 저농도 잔류살포, 트랩설치
+<!-- ===== 양식(PDF 보기) ===== -->
+<div id="formView">
+  <div class="form-actions no-print">
+    <button class="btn ghost" onclick="hideForm()">← 돌아가기</button>
+    <button class="btn" onclick="window.print()">PDF / 인쇄</button>
+  </div>
+  <div class="stage">
+    <!-- 1p 소독증명서 -->
+    <section class="page page-cert doc">
+      <div class="law">■ 감염병의 예방 및 관리에 관한 법률 시행규칙 [별지 제28호 서식]</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div style="font-size:12px;">제 <span id="f_certno"></span> 호</div>
+        <div class="stamp-area">(KPCA 인증마크 / 직인 자리)</div>
+      </div>
+      <div class="title">소독증명서</div>
+      <table>
+        <tr>
+          <td class="lbl" rowspan="4" style="width:11%"><span class="vlabel">대상시설</span></td>
+          <td class="lbl" style="width:17%">상 호 (명칭)</td>
+          <td colspan="2">새봄</td>
+          <td class="lbl" style="width:15%">실시면적(용적)</td>
+          <td style="width:18%">37평, 21평</td>
+        </tr>
+        <tr><td class="lbl">소 재 지</td><td colspan="4">경기도 수원시 팔달구 인계동 950-14번지 2층</td></tr>
+        <tr><td class="lbl" rowspan="2">관리(운영)자<br>확인</td><td class="lbl">직위</td><td colspan="3"></td></tr>
+        <tr><td class="lbl">성명</td><td colspan="3"><span style="float:right">(인)</span></td></tr>
+        <tr><td class="lbl">소독 기간</td><td colspan="5" class="center"><span class="f_date"></span> ~ <span class="f_date"></span></td></tr>
+        <tr>
+          <td class="lbl" rowspan="2"><span class="vlabel">소독내용</span></td>
+          <td class="lbl">종 류</td>
+          <td colspan="4" class="fixed">1. 살충소독 : 저농도 잔류살포, 트랩설치
 2. 살균소독 : 닦아내기 법</td>
-      </tr>
-      <tr>
-        <td class="lbl">약품 사용 내용</td>
-        <td colspan="4" class="fixed">1. 싸이퍼킬   2. 쿼트플러스알파액   3. 바퀴트랩</td>
-      </tr>
-    </table>
+        </tr>
+        <tr><td class="lbl">약품 사용 내용</td><td colspan="4" class="fixed">1. 싸이퍼킬   2. 쿼트플러스알파액   3. 바퀴트랩</td></tr>
+      </table>
+      <div class="legal">「감염병의 예방 및 관리에 관한 법률」 제54조 제1항 및 같은 법 시행규칙 제40조 제2항에 따라<br>위와 같이 소독을 실시하였음을 증명합니다.</div>
+      <div class="center" style="font-size:13px;margin-bottom:12px;"><span class="f_date"></span></div>
+      <table>
+        <tr class="signrow"><td class="lbl" style="width:28%">소독실시자 상호(명칭)</td><td class="center" style="font-weight:700">작은행동 한사랑</td></tr>
+        <tr class="signrow"><td class="lbl">소 재 지</td><td class="center">경기도 수원시 장안구 수성로 258번길 31(영화동)</td></tr>
+        <tr class="signrow"><td class="lbl">성명(대표자)</td><td class="center" style="font-weight:700">이 영 설 &nbsp;&nbsp;&nbsp;&nbsp;(인)</td></tr>
+      </table>
+    </section>
 
-    <div class="legal">「감염병의 예방 및 관리에 관한 법률」 제54조 제1항 및 같은 법 시행규칙 제40조 제2항에 따라<br>
-      위와 같이 소독을 실시하였음을 증명합니다.</div>
-    <div class="center" style="font-size:13px;margin-bottom:12px;"><span class="date-cert"></span></div>
-
-    <table>
-      <tr class="signrow"><td class="lbl" style="width:28%">소독실시자 상호(명칭)</td><td class="center" style="font-weight:700">작은행동 한사랑</td></tr>
-      <tr class="signrow"><td class="lbl">소 재 지</td><td class="center">경기도 수원시 장안구 수성로 258번길 31(영화동)</td></tr>
-      <tr class="signrow"><td class="lbl">성명(대표자)</td><td class="center" style="font-weight:700">이 영 설 &nbsp;&nbsp;&nbsp;&nbsp;(인)</td></tr>
-    </table>
-  </section>
-
-  <!-- ============ 2페이지~: 소독·방역 기록장 ============ -->
-  <section class="page page-log doc">
-    <div class="log-title">◎ 소독·방역 기록장</div>
-    <table>
-      <tr>
-        <td class="lbl" style="width:11%">일 시</td>
-        <td colspan="2"><span class="date-cert2"></span></td>
-        <td class="lbl" style="width:11%">날 씨</td>
-        <td><input class="f" id="weather" value="맑음" style="width:70%"></td>
-        <td class="lbl" style="width:11%">시 간</td>
-        <td><input class="f" id="time" value="15:00" style="width:75%"></td>
-      </tr>
-      <tr>
-        <td class="lbl" rowspan="2">작업자</td>
-        <td class="lbl center">대표자</td><td class="lbl center">연락처</td>
-        <td class="lbl center">실무자</td><td class="lbl center">연락처</td><td class="lbl center">소재지</td>
-      </tr>
-      <tr>
-        <td class="center">이영설</td><td class="center">010-8054-1030</td>
-        <td class="center">조영찬</td><td class="center">070-4149-1908</td><td class="center">수원시</td>
-      </tr>
-    </table>
-
-    <table style="margin-top:10px;">
-      <tr><td class="section-h">조사내용 및 소독·방역</td></tr>
-      <tr><td class="survey">1. 시설내부(사무실, 프로그램실, 주방 등)에 불특정다수의 손이 많이 닿는 공동집기류에 살균제를 분사하여 헝겊(천)으로 닦아내었다.
+    <!-- 2p 기록장 -->
+    <section class="page page-log doc">
+      <div class="log-title">◎ 소독·방역 기록장</div>
+      <table>
+        <tr>
+          <td class="lbl" style="width:11%">일 시</td><td colspan="2"><span class="f_date"></span></td>
+          <td class="lbl" style="width:11%">날 씨</td><td>맑음</td>
+          <td class="lbl" style="width:11%">시 간</td><td>15:00</td>
+        </tr>
+        <tr>
+          <td class="lbl" rowspan="2">작업자</td>
+          <td class="lbl center">대표자</td><td class="lbl center">연락처</td>
+          <td class="lbl center">실무자</td><td class="lbl center">연락처</td><td class="lbl center">소재지</td>
+        </tr>
+        <tr><td class="center">이영설</td><td class="center">010-8054-1030</td><td class="center">조영찬</td><td class="center">070-4149-1908</td><td class="center">수원시</td></tr>
+      </table>
+      <table style="margin-top:10px;">
+        <tr><td class="section-h">조사내용 및 소독·방역</td></tr>
+        <tr><td class="survey">1. 시설내부(사무실, 프로그램실, 주방 등)에 불특정다수의 손이 많이 닿는 공동집기류에 살균제를 분사하여 헝겊(천)으로 닦아내었다.
 2. 주방 뿐만 아니라 에어컨, 냉장고, 정수기주변 등 습하고 따뜻하여 해충의 서식 가능한 구역에 살충소독을 실시하였다.
 3. 화장실, 계단, 복도에 살균 및 살충소독을 실시하였다.
 4. 지난 소독시 설치한 트랩을 점검하고 필요에 따라 방제하였다.</td></tr>
-    </table>
-
-    <table style="margin-top:10px;">
-      <tr><td class="section-h" colspan="5">소독·방역 내역서</td></tr>
-      <tr>
-        <td class="lbl colw-loc">장소</td>
-        <td class="lbl colw-med">사용약제 및 사용장비</td>
-        <td class="lbl colw-meth">살포방법</td>
-        <td class="lbl">작업실시 현황 (사진)</td>
-        <td class="lbl colw-worker">작업자</td>
-      </tr>
-      <tbody id="rows"></tbody>
-    </table>
-  </section>
-
+      </table>
+      <table style="margin-top:10px;">
+        <tr><td class="section-h" colspan="5">소독·방역 내역서</td></tr>
+        <tr>
+          <td class="lbl colw-loc">장소</td>
+          <td class="lbl colw-med">사용약제 및 사용장비</td>
+          <td class="lbl colw-meth">살포방법</td>
+          <td class="lbl">작업실시 현황 (사진)</td>
+          <td class="lbl colw-worker">작업자</td>
+        </tr>
+        <tbody id="f_rows"></tbody>
+      </table>
+    </section>
+  </div>
 </div>
 
+<div id="toast"></div>
+
 <script>
-/* ====== 구글 시트 연동 설정 ======
-   Apps Script를 "웹앱"으로 배포한 뒤 받은 URL을 아래 따옴표 안에 붙여넣으세요. */
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzrVPWcK-EH11EPQDcYAZ5kSEZwQfaveZlqeozfFwd3qULVZrEY5fnHy0Avgkoim-PcYg/exec';
-/* ================================ */
 
 const WORKERS = ['김수진','이병조','유영선','조영찬'];
 const ROWS = [
-  {loc:'시설내부\n(사무실,\n프로그램실 등)',
+  {key:'시설내부', loc:'시설내부\n(사무실,\n프로그램실 등)',
    med:'쿼트플러스알파액을 분무기로 분사 후 헝겊(천)으로 닦아냄\n\n싸이퍼킬 살충제를 이용한 수동식분무',
-   meth:'분무기로 공동집기류와 손이 닿는 손잡이 등에 분사 후 닦아냄\n\n저독성 살충제를 사용하여 살충작업. 수동식분무기로 직접 살포.',
-   workers:['김수진','이병조','유영선']},
-  {loc:'주방·복도 등',
+   meth:'분무기로 공동집기류와 손이 닿는 손잡이 등에 분사 후 닦아냄\n\n저독성 살충제를 사용하여 살충작업. 수동식분무기로 직접 살포.'},
+  {key:'주방·복도', loc:'주방·복도 등',
    med:'싸이퍼킬 살충제를 이용한 수동식분무',
-   meth:'저독성 살충제를 사용하여 살충작업.\n수동식분무기로 직접 살포.',
-   workers:['김수진','이병조']},
-  {loc:'화장실·계단 등',
+   meth:'저독성 살충제를 사용하여 살충작업.\n수동식분무기로 직접 살포.'},
+  {key:'화장실·계단', loc:'화장실·계단 등',
    med:'쿼트플러스알파액을 분무기로 분사 후 헝겊(천)으로 닦아냄\n\n싸이퍼킬 살충제를 이용한 수동식분무',
-   meth:'분무기로 공동집기류와 손이 닿는 손잡이 등에 분사 후 닦아냄\n\n저독성 살충제를 사용하여 살충작업. 수동식분무기로 직접 살포.',
-   workers:['김수진','이병조','유영선']},
-  {loc:'트랩 점검',
+   meth:'분무기로 공동집기류와 손이 닿는 손잡이 등에 분사 후 닦아냄\n\n저독성 살충제를 사용하여 살충작업. 수동식분무기로 직접 살포.'},
+  {key:'트랩 점검', loc:'트랩 점검',
    med:'맥스포스셀렉트겔\n바퀴트랩',
-   meth:'바퀴벌레 독먹이제를 도포한 트랩을 출현 예상구역에 설치',
-   workers:['김수진']},
+   meth:'바퀴벌레 독먹이제를 도포한 트랩을 출현 예상구역에 설치'},
 ];
+
+// 장소별 상태 저장
+const state = ROWS.map(() => ({ photos:[], workers:[] }));
 
 function todayStr(){
   const d=new Date();
-  return `${d.getFullYear()} 년 ${String(d.getMonth()+1).padStart(2,'0')} 월 ${String(d.getDate()).padStart(2,'0')} 일`;
+  return `${d.getFullYear()}년 ${String(d.getMonth()+1).padStart(2,'0')}월 ${String(d.getDate()).padStart(2,'0')}일`;
 }
-function setDates(){
-  const t=todayStr();
-  document.querySelectorAll('.date-cert,.date-cert2').forEach(e=>e.textContent=t);
-  document.querySelectorAll('.date-start').forEach(e=>{if(!e.value)e.value=t;});
-  document.querySelectorAll('.date-end').forEach(e=>{if(!e.value)e.value=t;});
-  // 증명서 번호 자동 초안
-  const d=new Date(), no=document.getElementById('certno');
-  if(!no.value) no.value=`CC-${String(d.getFullYear()).slice(2)}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+function certNo(){
+  const d=new Date();
+  return `CC-${String(d.getFullYear()).slice(2)}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
-function buildRows(){
-  const tb=document.getElementById('rows'); tb.innerHTML='';
+function buildCards(){
+  document.getElementById('todayLabel').textContent = todayStr();
+  const box=document.getElementById('cards'); box.innerHTML='';
   ROWS.forEach((r,i)=>{
-    const tr=document.createElement('tr');
-    // 장소
-    const tdLoc=document.createElement('td'); tdLoc.className='loc'; tdLoc.textContent=r.loc;
-    // 약제
-    const tdMed=document.createElement('td'); tdMed.className='fixed'; tdMed.textContent=r.med;
-    // 살포방법
-    const tdMeth=document.createElement('td'); tdMeth.className='fixed'; tdMeth.textContent=r.meth;
-    // 사진
-    const tdPh=document.createElement('td');
-    const wrap=document.createElement('div'); wrap.className='photos';
-    const gallery=document.createElement('div'); gallery.className='photos'; gallery.style.marginBottom='8px';
-    const label=document.createElement('label'); label.className='addbtn no-print';
-    label.innerHTML='＋ 사진 추가';
-    const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.multiple=true; inp.setAttribute('capture','environment');
-    inp.addEventListener('change',e=>addPhotos(e,gallery));
-    label.appendChild(inp);
-    tdPh.appendChild(gallery); tdPh.appendChild(label);
+    const card=document.createElement('div'); card.className='card';
+    const h=document.createElement('h2'); h.innerHTML=`<span class="n">${i+1}</span>${r.key}`;
+    card.appendChild(h);
+
     // 작업자
-    const tdW=document.createElement('td');
-    const chiprow=document.createElement('div'); chiprow.className='chiprow no-print';
-    const printText=document.createElement('div'); printText.className='worker-print';
-    const updatePrint=()=>{ printText.textContent=[...chiprow.querySelectorAll('.chip.on')].map(c=>c.textContent).join('\n'); };
+    const sub1=document.createElement('div'); sub1.className='sub'; sub1.textContent='작업자 선택'; card.appendChild(sub1);
+    const chiprow=document.createElement('div'); chiprow.className='chiprow';
     WORKERS.forEach(w=>{
-      const c=document.createElement('span'); c.className='chip'+(r.workers.includes(w)?' on':''); c.textContent=w;
-      c.onclick=()=>{c.classList.toggle('on');updatePrint();};
+      const c=document.createElement('span'); c.className='chip'; c.textContent=w;
+      c.onclick=()=>{ c.classList.toggle('on');
+        state[i].workers = [...chiprow.querySelectorAll('.chip.on')].map(x=>x.textContent); };
       chiprow.appendChild(c);
     });
-    tdW.appendChild(chiprow); tdW.appendChild(printText); updatePrint();
+    card.appendChild(chiprow);
 
-    tr.append(tdLoc,tdMed,tdMeth,tdPh,tdW);
-    tb.appendChild(tr);
+    // 사진
+    const sub2=document.createElement('div'); sub2.className='sub'; sub2.textContent='현장 사진'; card.appendChild(sub2);
+    const gallery=document.createElement('div'); gallery.className='photos';
+    card.appendChild(gallery);
+    const label=document.createElement('label'); label.className='addbtn';
+    const cnt=document.createElement('span'); cnt.className='count';
+    const refreshCnt=()=>{ cnt.textContent = state[i].photos.length ? `(${state[i].photos.length}장)` : ''; };
+    label.innerHTML='📷 사진 추가 ';
+    label.appendChild(cnt);
+    const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.multiple=true; inp.setAttribute('capture','environment');
+    inp.addEventListener('change',e=>addPhotos(e,i,gallery,refreshCnt));
+    label.appendChild(inp);
+    card.appendChild(label);
+
+    box.appendChild(card);
   });
 }
 
-function addPhotos(e,gallery){
+function addPhotos(e,i,gallery,refreshCnt){
   [...e.target.files].forEach(file=>{
     const reader=new FileReader();
     reader.onload=ev=>{
+      const dataUrl=ev.target.result;
+      state[i].photos.push(dataUrl);
       const w=document.createElement('div'); w.className='ph-wrap';
-      const img=document.createElement('img'); img.src=ev.target.result;
-      const del=document.createElement('button'); del.className='ph-del no-print'; del.textContent='×';
-      del.onclick=()=>w.remove();
-      w.append(img,del); gallery.appendChild(w);
+      const img=document.createElement('img'); img.src=dataUrl;
+      const del=document.createElement('button'); del.className='ph-del'; del.textContent='×';
+      del.onclick=()=>{ const idx=state[i].photos.indexOf(dataUrl); if(idx>-1)state[i].photos.splice(idx,1); w.remove(); refreshCnt(); };
+      w.append(img,del); gallery.appendChild(w); refreshCnt();
     };
     reader.readAsDataURL(file);
   });
   e.target.value='';
 }
 
-function savePDF(){ window.print(); }
-function resetAll(){ if(confirm('입력한 내용과 사진을 모두 지울까요?')){ buildRows(); setDates(); } }
-
-/* ---------- 구글 시트 누적 ---------- */
-function resizeToJpeg(img, max=1000, q=0.7){
-  const c=document.createElement('canvas');
-  let w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
-  if(Math.max(w,h)>max){const s=max/Math.max(w,h); w=Math.round(w*s); h=Math.round(h*s);}
-  c.width=w; c.height=h; c.getContext('2d').drawImage(img,0,0,w,h);
-  const url=c.toDataURL('image/jpeg',q);
-  return {type:'image/jpeg', data:url.split(',')[1]};
-}
-function collectData(){
-  const rows=[];
-  document.querySelectorAll('#rows tr').forEach(tr=>{
-    const loc=tr.querySelector('.loc').textContent.replace(/\n/g,' ').replace(/\s+/g,' ').trim();
-    const workers=[...tr.querySelectorAll('.chip.on')].map(c=>c.textContent);
-    const photos=[...tr.querySelectorAll('.photos img')].map(img=>resizeToJpeg(img));
-    rows.push({loc,workers,photos});
+/* ===== 양식 채우기 + 보기 ===== */
+function fillForm(){
+  const t=todayStr();
+  document.querySelectorAll('.f_date').forEach(e=>e.textContent=t);
+  document.getElementById('f_certno').textContent=certNo();
+  const tb=document.getElementById('f_rows'); tb.innerHTML='';
+  ROWS.forEach((r,i)=>{
+    const tr=document.createElement('tr');
+    const tdLoc=document.createElement('td'); tdLoc.className='loc'; tdLoc.textContent=r.loc;
+    const tdMed=document.createElement('td'); tdMed.className='fixed'; tdMed.textContent=r.med;
+    const tdMeth=document.createElement('td'); tdMeth.className='fixed'; tdMeth.textContent=r.meth;
+    const tdPh=document.createElement('td');
+    const g=document.createElement('div'); g.className='fphotos';
+    state[i].photos.forEach(src=>{ const im=document.createElement('img'); im.src=src; g.appendChild(im); });
+    tdPh.appendChild(g);
+    const tdW=document.createElement('td'); tdW.className='fworker'; tdW.textContent=state[i].workers.join('\n');
+    tr.append(tdLoc,tdMed,tdMeth,tdPh,tdW);
+    tb.appendChild(tr);
   });
-  return { date:(document.querySelector('.date-cert').textContent||'').trim(),
-           biz:document.getElementById('biz').value, rows };
+}
+function showForm(){ fillForm(); document.getElementById('inputView').style.display='none'; document.getElementById('formView').classList.add('show'); window.scrollTo(0,0); }
+function hideForm(){ document.getElementById('formView').classList.remove('show'); document.getElementById('inputView').style.display='block'; }
+
+/* ===== 시트 저장 ===== */
+function resizeToJpeg(dataUrl, max=1000, q=0.7){
+  return new Promise(res=>{
+    const img=new Image();
+    img.onload=()=>{
+      let w=img.naturalWidth, h=img.naturalHeight;
+      if(Math.max(w,h)>max){const s=max/Math.max(w,h); w=Math.round(w*s); h=Math.round(h*s);}
+      const c=document.createElement('canvas'); c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      res({type:'image/jpeg', data:c.toDataURL('image/jpeg',q).split(',')[1]});
+    };
+    img.src=dataUrl;
+  });
 }
 function toast(msg){
-  let t=document.getElementById('toast');
-  if(!t){t=document.createElement('div');t.id='toast';t.className='no-print';
-    t.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#111;color:#fff;padding:12px 18px;border-radius:10px;font-size:14px;z-index:99;box-shadow:0 4px 16px rgba(0,0,0,.3);max-width:90%;text-align:center;transition:opacity .3s;';
-    document.body.appendChild(t);}
-  t.textContent=msg; t.style.opacity='1';
+  const t=document.getElementById('toast'); t.textContent=msg; t.style.opacity='1';
   clearTimeout(t._t); t._t=setTimeout(()=>{t.style.opacity='0';},4500);
 }
 async function saveToSheet(){
-  if(!SCRIPT_URL){ alert('먼저 Apps Script 웹앱 URL을 코드 상단 SCRIPT_URL에 넣어주세요.'); return; }
   const btn=document.getElementById('saveBtn'); const old=btn.textContent;
   btn.textContent='저장 중…'; btn.disabled=true;
   try{
-    const payload=collectData();
+    const rows=[];
+    for(let i=0;i<ROWS.length;i++){
+      const photos=[];
+      for(const d of state[i].photos){ photos.push(await resizeToJpeg(d)); }
+      rows.push({ loc:ROWS[i].key, workers:state[i].workers, photos });
+    }
+    const payload={ date:todayStr(), biz:'새봄', rows };
     const res=await fetch(SCRIPT_URL,{method:'POST',body:JSON.stringify(payload)});
     let ok=true; try{const j=await res.json(); ok=j.ok!==false;}catch(_){}
-    toast(ok?'구글 시트에 저장되었습니다.':'저장 실패 — URL/배포 설정을 확인하세요.');
-  }catch(err){ toast('전송 실패: '+err.message+' (인터넷·URL 확인)'); }
+    toast(ok?'구글 시트에 저장되었습니다.':'저장 실패 — 잠시 후 시트를 확인하세요.');
+  }catch(err){ toast('전송 실패: '+err.message); }
   finally{ btn.textContent=old; btn.disabled=false; }
 }
 
-setDates(); buildRows();
+buildCards();
 </script>
 </body>
 </html>
