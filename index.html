@@ -131,6 +131,7 @@
       <button class="addbtn" id="saveClientBtn" style="display:none;margin-top:8px;" onclick="registerClient()">＋ 이 거래처를 목록에 저장</button>
     </div>
 
+    <div class="card"><div class="grp-label">실무자 (보고서 대표)</div><div class="chiprow" id="silmuRow"></div></div>
     <div id="cards"></div>
   </div>
   <div class="bottombar">
@@ -159,7 +160,7 @@
           <td class="lbl center">대표자</td><td class="lbl center">연락처</td>
           <td class="lbl center">실무자</td><td class="lbl center">연락처</td><td class="lbl center">소재지</td>
         </tr>
-        <tr><td class="center">이영설</td><td class="center">010-8054-1030</td><td class="center">조영찬</td><td class="center">070-4149-1908</td><td class="center">수원시</td></tr>
+        <tr><td class="center">이영설</td><td class="center">010-8054-1030</td><td class="center" id="f_silmu">조영찬</td><td class="center">070-4149-1908</td><td class="center">수원시</td></tr>
       </table>
       <table style="margin-top:10px;">
         <tr><td class="section-h">조사내용 및 소독·방역</td></tr>
@@ -208,7 +209,7 @@ const ROWS = [
 
 // 장소별 상태: 약제/방법(수정가능)·사진·작업자·이용자
 const state = ROWS.map(r => ({ med:r.med, meth:r.meth, photos:[], workers:[], users:[] }));
-let CLIENTS = {}; // name -> {addr,area,biz,mgr}
+let CLIENTS = {}; let SILMU='조영찬'; // name -> {addr,area,biz,mgr}
 
 function todayStr(){
   const d=new Date();
@@ -354,9 +355,22 @@ function addPhotos(e,i,gallery,refreshCnt){
 }
 
 /* ===== 양식 채우기 ===== */
+function buildSilmu(){
+  const row=document.getElementById('silmuRow'); if(!row) return; row.innerHTML='';
+  WORKERS.forEach(w=>{
+    const c=document.createElement('span'); c.className='chip'; c.textContent=w;
+    if(w===SILMU) c.classList.add('on');
+    c.onclick=()=>{ SILMU=(SILMU===w?'':w); buildSilmu(); };
+    row.appendChild(c);
+  });
+  const add=document.createElement('span'); add.className='chip'; add.textContent='＋직접입력'; add.style.borderStyle='dashed';
+  add.onclick=()=>{ const nm=(prompt('실무자 이름 입력')||'').trim(); if(!nm)return; if(WORKERS.indexOf(nm)===-1)WORKERS.push(nm); SILMU=nm; buildSilmu(); };
+  row.appendChild(add);
+}
 function fillForm(){
   const t=todayStr();
   document.querySelectorAll('.f_date').forEach(e=>e.textContent=t);
+    const _se=document.getElementById('f_silmu'); if(_se) _se.textContent=SILMU||'조영찬';
   const tb=document.getElementById('f_rows'); tb.innerHTML='';
   ROWS.forEach((r,i)=>{
     if(state[i].skip)return;
@@ -452,7 +466,7 @@ async function saveToSheet(){
 document.getElementById('facInput').addEventListener('change',onFacChange);
 document.getElementById('facInput').addEventListener('input',onFacChange);
 buildCards();
-loadClients();
+buildSilmu(); loadClients();
 </script>
 </body>
 </html>
