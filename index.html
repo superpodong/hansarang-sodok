@@ -330,8 +330,10 @@ function buildCards(){
     eb.append(l1,t1,l2,t2);
     card.appendChild(tg); card.appendChild(eb);
 
+    {const _sk=document.createElement('label');_sk.className='toggle';_sk.style.cssText='float:right;font-size:12px;color:#555';const _cb=document.createElement('input');_cb.type='checkbox';_cb.checked=!state[i].skip;_cb.style.marginRight='4px';_cb.onchange=()=>{state[i].skip=!_cb.checked;card.style.opacity=_cb.checked?'1':'0.4';};_sk.appendChild(_cb);_sk.appendChild(document.createTextNode('이 장소 포함'));card.insertBefore(_sk,card.firstChild);if(state[i].skip)card.style.opacity='0.4';}
     box.appendChild(card);
   });
+  {const _b=document.createElement('div');_b.className='addbtn';_b.textContent='＋ 장소 직접 추가';_b.style.marginTop='4px';_b.onclick=()=>{const nm=(prompt('추가할 장소 이름 (예: 주차장, 캠핑장)')||'').trim();if(!nm)return;const _dm='저농도 잔류살포 후 헝겊(천)으로 닦아냄';const _mt='분무기로 분사 후 손이 닿는 곳을 닦아냄';ROWS.push({key:nm,loc:nm,med:_dm,meth:_mt});state.push({med:_dm,meth:_mt,photos:[],workers:[],users:[]});buildCards();};box.appendChild(_b);}
 }
 
 function addPhotos(e,i,gallery,refreshCnt){
@@ -357,6 +359,7 @@ function fillForm(){
   document.querySelectorAll('.f_date').forEach(e=>e.textContent=t);
   const tb=document.getElementById('f_rows'); tb.innerHTML='';
   ROWS.forEach((r,i)=>{
+    if(state[i].skip)return;
     const tr=document.createElement('tr');
     const tdLoc=document.createElement('td'); tdLoc.className='loc'; tdLoc.textContent=r.loc;
     const tdMed=document.createElement('td'); tdMed.className='fixed'; tdMed.textContent=state[i].med;
@@ -437,8 +440,8 @@ async function saveToSheet(){
     pg.drawImage(jpg, { x:(A4W-w)/2, y:A4H-h, width:w, height:h });
     const mergedB64 = await out.saveAsBase64();
     btn.textContent = '저장 중…';
-    const rows = ROWS.map((r,i)=>({ loc:r.key, med:state[i].med, meth:state[i].meth, workers:state[i].workers, users:state[i].users }));
-    const payload = { date: todayStr(), facility:{ name, addr, area, biz }, rows, pdf: mergedB64 };
+    const rows = ROWS.map((r,i)=>({ loc:r.key, med:state[i].med, meth:state[i].meth, workers:state[i].workers, users:state[i].users })).filter((_,i)=>!state[i].skip);
+    const payload = { date: todayStr(), certNo: certNo(), facility:{ name, addr, area, biz }, rows, pdf: mergedB64 };
     const res = await fetch(SCRIPT_URL, { method:'POST', body: JSON.stringify(payload) });
     let ok = true; try{ const j = await res.json(); ok = j.ok !== false; }catch(_){}
     toast(ok ? '저장 완료 — 기록 탭에 PDF 링크가 들어갔습니다.' : '저장 실패 — 잠시 후 시트를 확인하세요.');
