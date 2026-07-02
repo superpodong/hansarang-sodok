@@ -476,4 +476,10 @@ async function saveToSheet(){
 }
 
 document.getElementById('facInput').addEventListener('change',onFacChange);
-document.getElementBy
+document.getElementById('facInput').addEventListener('input',onFacChange);
+buildCards();
+buildSilmu(); loadClients();
+setTimeout(()=>{const a=document.getElementById('surveyInput'),b=document.getElementById('f_survey');if(a&&b&&!a.value.trim())a.value=b.textContent;},0);
+</script>
+</body>
+</html>
