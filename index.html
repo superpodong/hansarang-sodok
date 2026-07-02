@@ -455,7 +455,13 @@ async function saveToSheet(){
     const certBytes = Uint8Array.from(atob(certJson.certPdf), c=>c.charCodeAt(0));
     const certDoc = await PDFDocument.load(certBytes);
     const out = await PDFDocument.create();
-    if(certJson.coverPdf){ const _cv = await PDFDocument.load(Uint8Array.from(atob(certJson.coverPdf), c=>c.charCodeAt(0))); const [_cp0] = await out.copyPages(_cv, [0]); out.addPage(_cp0); } // 표지 첫 장만 복사(빈 페이지 방지)
+    if(certJson.coverPdf){
+      // 표지 첫 장만 사용(빈 페이지 방지) + 내보내기 캔버스가 우측으로 넓어 좌측에 치우친 것을 보정(우측 78pt, 위 45pt 이동해 A4 중앙 배치)
+      const _cv = await PDFDocument.load(Uint8Array.from(atob(certJson.coverPdf), c=>c.charCodeAt(0)));
+      const _emb = await out.embedPage(_cv.getPage(0));
+      const _pg = out.addPage([595.28, 841.89]);
+      _pg.drawPage(_emb, { x:78, y:45 });
+    }
     const cp = await out.copyPages(certDoc, certDoc.getPageIndices());
     cp.forEach(p=>out.addPage(p));
     const jpg = await out.embedJpg(contentImg);
@@ -470,16 +476,4 @@ async function saveToSheet(){
     const payload = { date: todayStr(), certNo: certNo(), facility:{ name, addr, area, biz }, rows, pdf: mergedB64 };
     const res = await fetch(SCRIPT_URL, { method:'POST', body: JSON.stringify(payload) });
     let ok = true; try{ const j = await res.json(); ok = j.ok !== false; }catch(_){}
-    toast(ok ? '저장 완료 — 기록 탭에 PDF 링크가 들어갔습니다.' : '저장 실패 — 잠시 후 시트를 확인하세요.');
-  }catch(err){ toast('실패: '+err.message); }
-  finally{ btn.textContent = old; btn.disabled = false; }
-}
-
-document.getElementById('facInput').addEventListener('change',onFacChange);
-document.getElementById('facInput').addEventListener('input',onFacChange);
-buildCards();
-buildSilmu(); loadClients();
-setTimeout(()=>{const a=document.getElementById('surveyInput'),b=document.getElementById('f_survey');if(a&&b&&!a.value.trim())a.value=b.textContent;},0);
-</script>
-</body>
-</html>
+    toast(ok ? '저장 완료 — 기록 탭에 PDF 링크가 들어갔습니다.' : '저장 실패 — 잠시 후 시트
