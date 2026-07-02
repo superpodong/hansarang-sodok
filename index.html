@@ -133,6 +133,7 @@
     </div>
 
     <div class="card"><div class="grp-label">실무자 (보고서 대표)</div><div class="chiprow" id="silmuRow"></div><input class="fld" id="silmuTel" placeholder="실무자 연락처" value="070-4149-1908" style="margin-top:8px"></div>
+<div class="card"><div class="grp-label">업무 시간</div><div style="display:flex;gap:8px;align-items:center"><input type="time" class="fld" id="timeStart" style="flex:1;margin:0"><span>~</span><input type="time" class="fld" id="timeEnd" style="flex:1;margin:0"></div></div>
     <div id="cards"></div>
 <div class="card"><div class="grp-label">조사내용 및 소독·방역 (수정 가능)</div><textarea class="fld" id="surveyInput" rows="7" style="min-height:130px"></textarea></div>
   </div>
@@ -440,7 +441,7 @@ async function saveToSheet(){
     btn.textContent = '내용 생성 중…';
     const contentImg = await generateContentImage();
     btn.textContent = '증명서 생성 중…';
-    const certRes = await fetch(SCRIPT_URL, { method:'POST', body: JSON.stringify({ action:'cert', name, addr, area, date: todayStr(), certNo: certNo() }) });
+    const certRes = await fetch(SCRIPT_URL, { method:'POST', body: JSON.stringify({ action:'cert', name, addr, area, date: todayStr(), certNo: certNo(), time: (function(){var s=document.getElementById('timeStart'),e=document.getElementById('timeEnd');var a=s&&s.value||'',b=e&&e.value||'';return (a||b)?(a+' ~ '+b):'';})() }) });
     const certJson = await certRes.json();
     if(!certJson.ok || !certJson.certPdf){ throw new Error(certJson.error || '증명서 생성 실패'); }
     btn.textContent = '병합 중…';
