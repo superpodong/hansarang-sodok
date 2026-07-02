@@ -156,14 +156,14 @@
         <tr>
           <td class="lbl" style="width:11%">일 시</td><td colspan="2"><span class="f_date"></span></td>
           <td class="lbl" style="width:11%">날 씨</td><td>맑음</td>
-          <td class="lbl" style="width:11%">시 간</td><td>15:00</td>
+          <td class="lbl" style="width:11%">시 간</td><td id="f_time">15:00</td>
         </tr>
         <tr>
           <td class="lbl" rowspan="2">작업자</td>
           <td class="lbl center">대표자</td><td class="lbl center">연락처</td>
           <td class="lbl center">실무자</td><td class="lbl center">연락처</td><td class="lbl center">소재지</td>
         </tr>
-        <tr><td class="center">이영설</td><td class="center">010-8054-1030</td><td class="center" id="f_silmu">조영찬</td><td class="center" id="f_silmu_tel">070-4149-1908</td><td class="center">수원시</td></tr>
+        <tr><td class="center">이영설</td><td class="center">010-8054-1030</td><td class="center" id="f_silmu">조영찬</td><td class="center" id="f_silmu_tel">070-4149-1908</td><td class="center" id="f_addr">수원시</td></tr>
       </table>
       <table style="margin-top:10px;">
         <tr><td class="section-h">조사내용 및 소독·방역</td></tr>
@@ -373,6 +373,8 @@ function buildSilmu(){
 function fillForm(){
   const t=todayStr();
   document.querySelectorAll('.f_date').forEach(e=>e.textContent=t);
+    const _ft=document.getElementById('f_time'); if(_ft){ var _ts=document.getElementById('timeStart'),_te=document.getElementById('timeEnd'),_a=_ts&&_ts.value||'',_b=_te&&_te.value||''; if(_a||_b) _ft.textContent=_a+' ~ '+_b; }
+    const _fa=document.getElementById('f_addr'),_fac=document.getElementById('facAddr'); if(_fa&&_fac&&_fac.value.trim()) _fa.textContent=_fac.value.trim();
     const _st=document.getElementById('f_silmu_tel'); const _si=document.getElementById('silmuTel'); if(_st&&_si&&_si.value.trim()) _st.textContent=_si.value.trim();
     const _fs=document.getElementById('f_survey'), _sv=document.getElementById('surveyInput'); if(_fs&&_sv){ if(!_sv.value.trim()) _sv.value=_fs.textContent; else _fs.textContent=_sv.value; }
     const _se=document.getElementById('f_silmu'); if(_se) _se.textContent=SILMU||'조영찬';
