@@ -418,7 +418,7 @@ function resizeToJpeg(dataUrl, max=1000, q=0.7){
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.style.opacity='1'; clearTimeout(t._t); t._t=setTimeout(()=>{t.style.opacity='0';},4500); }
 
 /* 양식(증명서+기록장)을 A4 PDF로 생성 → base64 반환 */
-async function generateContentImage(){
+async function generateContentPages(){
   const fv = document.getElementById('formView');
   fv.classList.add('show');
   fv.style.position='fixed'; fv.style.left='-99999px'; fv.style.top='0'; fv.style.width='840px'; fv.style.zIndex='-1';
@@ -426,7 +426,17 @@ async function generateContentImage(){
   try{
     page.style.width='794px';
     const canvas = await html2canvas(page, { scale:2, useCORS:true, backgroundColor:'#ffffff' });
-    return canvas.toDataURL('image/jpeg', 0.85);
+    const W=canvas.width, H=canvas.height;
+    const pageH=Math.round(W*(841.89/595.28)); // A4 한 장 높이(px)
+    const pages=[];
+    for(let y=0; y<H; y+=pageH){
+      const h=Math.min(pageH, H-y);
+      const c=document.createElement('canvas'); c.width=W; c.height=pageH;
+      const ctx=c.getContext('2d'); ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,W,pageH);
+      ctx.drawImage(canvas, 0,y,W,h, 0,0,W,h);
+      pages.push(c.toDataURL('image/jpeg',0.85));
+    }
+    return pages;
   } finally {
     page.style.width='';
     fv.classList.remove('show');
@@ -460,7 +470,7 @@ async function buildMergedPdf(){
   const name=document.getElementById('facInput').value.trim();
   const addr=document.getElementById('facAddr').value.trim();
   const area=document.getElementById('facArea').value.trim();
-  const contentImg=await generateContentImage();
+  const contentPages=await generateContentPages();
   const certRes=await fetch(SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'cert',name,addr,area,date:todayStr(),certNo:certNo(),time:(function(){var s=document.getElementById('timeStart'),e=document.getElementById('timeEnd');var a=s&&s.value||'',b=e&&e.value||'';return (a||b)?(a+' ~ '+b):'';})()})});
   const certJson=await certRes.json();
   if(!certJson.ok||!certJson.certPdf){ throw new Error(certJson.error||'증명서 생성 실패'); }
@@ -475,12 +485,14 @@ async function buildMergedPdf(){
   }
   const cp=await out.copyPages(certDoc,certDoc.getPageIndices());
   cp.forEach(p=>out.addPage(p));
-  const jpg=await out.embedJpg(contentImg);
   const A4W=595.28,A4H=841.89;
-  const pg=out.addPage([A4W,A4H]);
-  const ratio=Math.min(A4W/jpg.width,A4H/jpg.height);
-  const w=jpg.width*ratio,h=jpg.height*ratio;
-  pg.drawImage(jpg,{x:(A4W-w)/2,y:A4H-h,width:w,height:h});
+  for(const durl of contentPages){
+    const jpg=await out.embedJpg(durl);
+    const pg=out.addPage([A4W,A4H]);
+    const ratio=Math.min(A4W/jpg.width,A4H/jpg.height);
+    const w=jpg.width*ratio,h=jpg.height*ratio;
+    pg.drawImage(jpg,{x:(A4W-w)/2,y:A4H-h,width:w,height:h});
+  }
   return await out.save();
 }
 
@@ -514,7 +526,7 @@ async function saveToSheet(){
     const area = document.getElementById('facArea').value.trim();
     const biz  = document.getElementById('facBiz').value.trim();
     btn.textContent = '내용 생성 중…';
-    const contentImg = await generateContentImage();
+    const contentPages = await generateContentPages();
     btn.textContent = '증명서 생성 중…';
     const certRes = await fetch(SCRIPT_URL, { method:'POST', body: JSON.stringify({ action:'cert', name, addr, area, date: todayStr(), certNo: certNo(), time: (function(){var s=document.getElementById('timeStart'),e=document.getElementById('timeEnd');var a=s&&s.value||'',b=e&&e.value||'';return (a||b)?(a+' ~ '+b):'';})() }) });
     const certJson = await certRes.json();
@@ -533,12 +545,14 @@ async function saveToSheet(){
     }
     const cp = await out.copyPages(certDoc, certDoc.getPageIndices());
     cp.forEach(p=>out.addPage(p));
-    const jpg = await out.embedJpg(contentImg);
     const A4W = 595.28, A4H = 841.89;
-    const pg = out.addPage([A4W, A4H]);
-    const ratio = Math.min(A4W/jpg.width, A4H/jpg.height);
-    const w = jpg.width*ratio, h = jpg.height*ratio;
-    pg.drawImage(jpg, { x:(A4W-w)/2, y:A4H-h, width:w, height:h });
+    for(const durl of contentPages){
+      const jpg = await out.embedJpg(durl);
+      const pg = out.addPage([A4W, A4H]);
+      const ratio = Math.min(A4W/jpg.width, A4H/jpg.height);
+      const w = jpg.width*ratio, h = jpg.height*ratio;
+      pg.drawImage(jpg, { x:(A4W-w)/2, y:A4H-h, width:w, height:h });
+    }
     const mergedB64 = await out.saveAsBase64();
     btn.textContent = '저장 중…';
     const rows = ROWS.map((r,i)=>({ loc:r.key, med:state[i].med, meth:state[i].meth, workers:state[i].workers, users:state[i].users })).filter((_,i)=>!state[i].skip);
