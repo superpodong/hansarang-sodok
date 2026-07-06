@@ -138,7 +138,7 @@
 <div class="card"><div class="grp-label">조사내용 및 소독·방역 (수정 가능)</div><textarea class="fld" id="surveyInput" rows="7" style="min-height:130px"></textarea></div>
   </div>
   <div class="bottombar">
-    <button class="btn btn-pdf" onclick="showForm()">PDF 보기</button>
+    <button class="btn btn-pdf" onclick="previewPdf()">PDF 보기</button>
     <button class="btn btn-save" id="saveBtn" onclick="saveToSheet()">기록 저장</button>
   </div>
 </div>
@@ -432,6 +432,70 @@ async function generateContentImage(){
     fv.classList.remove('show');
     fv.style.position=''; fv.style.left=''; fv.style.top=''; fv.style.width=''; fv.style.zIndex='';
   }
+}
+
+/* ===== PDF 보기: 실제 병합 PDF를 즉석 생성해 미리보기 (Drive 저장 안 함) ===== */
+function showPdfOverlay(url){
+  let ov=document.getElementById('pdfOverlay');
+  if(!ov){
+    ov=document.createElement('div'); ov.id='pdfOverlay';
+    ov.style.cssText='position:fixed;inset:0;z-index:200;background:#333;display:flex;flex-direction:column';
+    const bar=document.createElement('div');
+    bar.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 12px;background:#0F4C81';
+    const close=document.createElement('button'); close.textContent='← 닫기';
+    close.style.cssText='border:0;border-radius:8px;padding:10px 14px;font-weight:800;background:#fff;color:#0F4C81;cursor:pointer';
+    close.onclick=()=>{ ov.style.display='none'; };
+    const openNew=document.createElement('a'); openNew.textContent='새 탭에서 열기'; openNew.target='_blank';
+    openNew.style.cssText='margin-left:auto;color:#fff;font-weight:700;text-decoration:underline';
+    const frame=document.createElement('iframe');
+    frame.style.cssText='flex:1;border:0;width:100%;background:#fff';
+    bar.append(close,openNew); ov.append(bar,frame); document.body.appendChild(ov);
+    ov._frame=frame; ov._openNew=openNew;
+  }
+  ov.style.display='flex'; ov._frame.src=url; ov._openNew.href=url;
+}
+
+async function buildMergedPdf(){
+  fillForm();
+  const name=document.getElementById('facInput').value.trim();
+  const addr=document.getElementById('facAddr').value.trim();
+  const area=document.getElementById('facArea').value.trim();
+  const contentImg=await generateContentImage();
+  const certRes=await fetch(SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'cert',name,addr,area,date:todayStr(),certNo:certNo(),time:(function(){var s=document.getElementById('timeStart'),e=document.getElementById('timeEnd');var a=s&&s.value||'',b=e&&e.value||'';return (a||b)?(a+' ~ '+b):'';})()})});
+  const certJson=await certRes.json();
+  if(!certJson.ok||!certJson.certPdf){ throw new Error(certJson.error||'증명서 생성 실패'); }
+  const { PDFDocument }=PDFLib;
+  const certDoc=await PDFDocument.load(Uint8Array.from(atob(certJson.certPdf),c=>c.charCodeAt(0)));
+  const out=await PDFDocument.create();
+  if(certJson.coverPdf){
+    const _cv=await PDFDocument.load(Uint8Array.from(atob(certJson.coverPdf),c=>c.charCodeAt(0)));
+    const _emb=await out.embedPage(_cv.getPage(0));
+    const _pg=out.addPage([595.28,841.89]);
+    _pg.drawPage(_emb,{x:78,y:45});
+  }
+  const cp=await out.copyPages(certDoc,certDoc.getPageIndices());
+  cp.forEach(p=>out.addPage(p));
+  const jpg=await out.embedJpg(contentImg);
+  const A4W=595.28,A4H=841.89;
+  const pg=out.addPage([A4W,A4H]);
+  const ratio=Math.min(A4W/jpg.width,A4H/jpg.height);
+  const w=jpg.width*ratio,h=jpg.height*ratio;
+  pg.drawImage(jpg,{x:(A4W-w)/2,y:A4H-h,width:w,height:h});
+  return await out.save();
+}
+
+async function previewPdf(){
+  const name=document.getElementById('facInput').value.trim();
+  if(!name){ toast('대상시설을 먼저 선택/입력하세요.'); return; }
+  const win=window.open('','_blank');
+  if(win){ try{ win.document.write('<title>PDF 생성 중</title><p style="font-family:sans-serif;padding:24px;font-size:16px">PDF 생성 중… 잠시만 기다려주세요.</p>'); }catch(_){} }
+  const btn=document.querySelector('.btn-pdf'); const old=btn.textContent; btn.disabled=true; btn.textContent='PDF 생성 중…';
+  try{
+    const bytes=await buildMergedPdf();
+    const url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
+    if(win){ win.location.href=url; } else { showPdfOverlay(url); }
+  }catch(err){ if(win){ try{win.close();}catch(_){} } toast('미리보기 실패: '+err.message); }
+  finally{ btn.textContent=old; btn.disabled=false; }
 }
 
 async function saveToSheet(){
