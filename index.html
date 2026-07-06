@@ -14,7 +14,7 @@
     --font:'Malgun Gothic','맑은 고딕','Apple SD Gothic Neo',-apple-system,sans-serif;
   }
   *{box-sizing:border-box;}
-  html,body{margin:0;background:var(--bg);font-family:var(--font);color:var(--ink);-webkit-text-size-adjust:100%;}
+  html,body{margin:0;background:var(--bg);font-family:var(--font);color:var(--ink);-webkit-text-size-adjust:100%;word-break:keep-all;}
 
   .appbar{position:sticky;top:0;z-index:50;background:var(--navy);color:#fff;
     display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 16px;}
@@ -114,7 +114,7 @@
     <span class="date" id="todayLabel"></span>
   </div>
   <div class="wrap">
-    <p class="lead">① 대상시설을 고르고 ② 장소별 사진·작업자를 입력한 뒤 <b>[기록 저장]</b>을 누르세요. 날짜는 오늘로 자동 입력됩니다.</p>
+    <p class="lead">① 대상시설을 고르고 ② 장소별 사진·작업자를 입력한 뒤 <b>[기록 저장]</b>을 누르세요. 저장한 뒤 <b>[PDF 보기]</b>를 누르면 완성된 PDF(표지·증명서·기록장)를 볼 수 있습니다. 날짜는 오늘로 자동 입력됩니다.</p>
 
     <!-- 대상시설 -->
     <div class="card">
@@ -138,8 +138,8 @@
 <div class="card"><div class="grp-label">조사내용 및 소독·방역 (수정 가능)</div><textarea class="fld" id="surveyInput" rows="7" style="min-height:130px"></textarea></div>
   </div>
   <div class="bottombar">
-    <button class="btn btn-pdf" onclick="previewPdf()">PDF 보기</button>
     <button class="btn btn-save" id="saveBtn" onclick="saveToSheet()">기록 저장</button>
+    <button class="btn btn-pdf" onclick="previewPdf()">PDF 보기</button>
   </div>
 </div>
 
@@ -487,14 +487,19 @@ async function buildMergedPdf(){
 async function previewPdf(){
   const name=document.getElementById('facInput').value.trim();
   if(!name){ toast('대상시설을 먼저 선택/입력하세요.'); return; }
-  const win=window.open('','_blank');
-  if(win){ try{ win.document.write('<title>PDF 생성 중</title><p style="font-family:sans-serif;padding:24px;font-size:16px">PDF 생성 중… 잠시만 기다려주세요.</p>'); }catch(_){} }
   const btn=document.querySelector('.btn-pdf'); const old=btn.textContent; btn.disabled=true; btn.textContent='PDF 생성 중…';
   try{
     const bytes=await buildMergedPdf();
     const url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
-    if(win){ win.location.href=url; } else { showPdfOverlay(url); }
-  }catch(err){ if(win){ try{win.close();}catch(_){} } toast('미리보기 실패: '+err.message); }
+    const isMobile=/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if(isMobile){
+      const a=document.createElement('a'); a.href=url; a.download=(name||'소독보고서')+'.pdf';
+      document.body.appendChild(a); a.click(); a.remove();
+      toast('PDF를 다운로드했어요. 상단 알림 또는 다운로드 폴더에서 열면 전체 페이지가 보입니다.');
+    } else {
+      window.open(url,'_blank');
+    }
+  }catch(err){ toast('미리보기 실패: '+err.message); }
   finally{ btn.textContent=old; btn.disabled=false; }
 }
 
