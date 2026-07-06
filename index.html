@@ -425,16 +425,34 @@ async function generateContentPages(){
   const page = fv.querySelector('.page-log');
   try{
     page.style.width='794px';
-    const canvas = await html2canvas(page, { scale:2, useCORS:true, backgroundColor:'#ffffff' });
+    const SCALE=2;
+    // 자를 수 있는 경계선(각 표 행의 하단) 위치를 픽셀로 수집
+    const pageTop=page.getBoundingClientRect().top;
+    const bounds=new Set();
+    page.querySelectorAll('table tr').forEach(tr=>{
+      const b=Math.round((tr.getBoundingClientRect().bottom - pageTop)*SCALE);
+      if(b>0) bounds.add(b);
+    });
+    const canvas = await html2canvas(page, { scale:SCALE, useCORS:true, backgroundColor:'#ffffff' });
     const W=canvas.width, H=canvas.height;
     const pageH=Math.round(W*(841.89/595.28)); // A4 한 장 높이(px)
+    const bl=[...bounds].filter(b=>b<=H).sort((a,b)=>a-b); bl.push(H);
     const pages=[];
-    for(let y=0; y<H; y+=pageH){
-      const h=Math.min(pageH, H-y);
+    let start=0;
+    while(start < H){
+      let end=start+pageH;
+      if(end < H){
+        // start~end 사이에서 가장 아래쪽 '행 하단'에 맞춰 자름 (없으면 pageH에서 그대로)
+        let cut=-1;
+        for(const b of bl){ if(b>start && b<=end) cut=b; }
+        if(cut>start) end=cut;
+      } else { end=H; }
+      const h=end-start;
       const c=document.createElement('canvas'); c.width=W; c.height=pageH;
       const ctx=c.getContext('2d'); ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,W,pageH);
-      ctx.drawImage(canvas, 0,y,W,h, 0,0,W,h);
+      ctx.drawImage(canvas, 0,start,W,h, 0,0,W,h);
       pages.push(c.toDataURL('image/jpeg',0.85));
+      start=end;
     }
     return pages;
   } finally {
