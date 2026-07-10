@@ -119,6 +119,9 @@
     <!-- 대상시설 -->
     <div class="card">
       <h2><span class="n">★</span>대상시설</h2>
+      <div class="sub">발급번호 (담당자가 미리 세팅한 번호)</div>
+      <select class="fld" id="certSelect"><option value="">— 발급번호를 선택하세요 —</option></select>
+      <div id="certHint" class="count"></div>
       <div class="sub">시설 선택 (목록에서 고르거나 직접 입력)</div>
       <input class="fld" id="facInput" list="facList" placeholder="시설명 검색 / 직접 입력" autocomplete="off">
       <datalist id="facList"></datalist>
@@ -217,6 +220,9 @@ const ROWS = [
 // 장소별 상태: 약제/방법(수정가능)·사진·작업자·이용자
 const state = ROWS.map(r => ({ med:r.med, meth:r.meth, photos:[], workers:[], users:[] }));
 let CLIENTS = {}; let SILMU='조영찬'; let SILMU_TEL='070-4149-1908'; // name -> {addr,area,biz,mgr}
+let PENDING = [];      // 미사용 발급번호 목록
+let SELECTED = null;   // 선택된 발급 건 {row,no,date,name,addr,area}
+function reportDate(){ return (SELECTED && SELECTED.date) ? SELECTED.date : todayStr(); }
 
 function todayStr(){
   const d=new Date();
@@ -239,6 +245,27 @@ function loadClients(){
         CLIENTS[c.name]={addr:c.addr,area:c.area,biz:c.biz,mgr:c.mgr};
         const o=document.createElement('option'); o.value=c.name; dl.appendChild(o);
       });
+      PENDING = (res && res.pending) || [];
+      const sel = document.getElementById('certSelect');
+      sel.innerHTML = '<option value="">— 발급번호를 선택하세요 —</option>';
+      PENDING.forEach(function(p, i){
+        const o = document.createElement('option');
+        o.value = String(i);
+        o.textContent = p.no + (p.name ? ' · ' + p.name : '') + (p.date ? ' · ' + p.date : '');
+        sel.appendChild(o);
+      });
+      document.getElementById('certHint').textContent =
+        PENDING.length ? ('미사용 발급번호 ' + PENDING.length + '건') : '미사용 발급번호가 없습니다. 담당자에게 발급대장 세팅을 요청하세요.';
+      sel.onchange = function(){
+        SELECTED = (this.value === '') ? null : PENDING[parseInt(this.value,10)];
+        if (SELECTED){
+          if (SELECTED.name) { document.getElementById('facInput').value = SELECTED.name; onFacChange(); }
+          if (SELECTED.addr) document.getElementById('facAddr').value = SELECTED.addr;
+          if (SELECTED.area) document.getElementById('facArea').value = SELECTED.area;
+          document.getElementById('certHint').textContent = '선택됨: ' + SELECTED.no + (SELECTED.date ? ' (소독일 ' + SELECTED.date + ')' : ' (소독일: 오늘)');
+        }
+        document.getElementById('todayLabel').textContent = reportDate();
+      };
       hint.textContent = list.length ? `거래처 ${list.length}곳 불러옴 (목록에 없으면 직접 입력)` : '거래처 목록이 비어있습니다. 직접 입력하세요.';
     }catch(e){ hint.textContent='거래처 로드 오류 — 직접 입력하세요.'; }
   };
@@ -375,7 +402,7 @@ function buildSilmu(){
   row.appendChild(add);
 }
 function fillForm(){
-  const t=todayStr();
+  const t=reportDate();
   document.querySelectorAll('.f_date').forEach(e=>e.textContent=t);
     const _ft=document.getElementById('f_time'); if(_ft){ var _ts=document.getElementById('timeStart'),_te=document.getElementById('timeEnd'),_a=_ts&&_ts.value||'',_b=_te&&_te.value||''; if(_a||_b) _ft.textContent=_a+' ~ '+_b; }
     const _fa=document.getElementById('f_addr'),_fac=document.getElementById('facAddr'); if(_fa&&_fac&&_fac.value.trim()) _fa.textContent=_fac.value.trim();
@@ -489,7 +516,7 @@ async function buildMergedPdf(){
   const addr=document.getElementById('facAddr').value.trim();
   const area=document.getElementById('facArea').value.trim();
   const contentPages=await generateContentPages();
-  const certRes=await fetch(SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'cert',name,addr,area,date:todayStr(),certNo:certNo(),time:(function(){var s=document.getElementById('timeStart'),e=document.getElementById('timeEnd');var a=s&&s.value||'',b=e&&e.value||'';return (a||b)?(a+' ~ '+b):'';})()})});
+  const certRes=await fetch(SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'cert',name,addr,area,date:reportDate(),certNo:(SELECTED?SELECTED.no:certNo()),time:(function(){var s=document.getElementById('timeStart'),e=document.getElementById('timeEnd');var a=s&&s.value||'',b=e&&e.value||'';return (a||b)?(a+' ~ '+b):'';})()})});
   const certJson=await certRes.json();
   if(!certJson.ok||!certJson.certPdf){ throw new Error(certJson.error||'증명서 생성 실패'); }
   const { PDFDocument }=PDFLib;
@@ -517,6 +544,7 @@ async function buildMergedPdf(){
 async function previewPdf(){
   const name=document.getElementById('facInput').value.trim();
   if(!name){ toast('대상시설을 먼저 선택/입력하세요.'); return; }
+  if(!SELECTED){ toast('발급번호를 먼저 선택하세요.'); return; }
   const btn=document.querySelector('.btn-pdf'); const old=btn.textContent; btn.disabled=true; btn.textContent='PDF 생성 중…';
   try{
     const bytes=await buildMergedPdf();
@@ -536,6 +564,7 @@ async function previewPdf(){
 async function saveToSheet(){
   const name = document.getElementById('facInput').value.trim();
   if(!name){ toast('대상시설을 먼저 선택/입력하세요.'); return; }
+  if(!SELECTED){ toast('발급번호를 먼저 선택하세요.'); return; }
   const btn = document.getElementById('saveBtn'); const old = btn.textContent;
   btn.disabled = true;
   try{
@@ -546,7 +575,7 @@ async function saveToSheet(){
     btn.textContent = '내용 생성 중…';
     const contentPages = await generateContentPages();
     btn.textContent = '증명서 생성 중…';
-    const certRes = await fetch(SCRIPT_URL, { method:'POST', body: JSON.stringify({ action:'cert', name, addr, area, date: todayStr(), certNo: certNo(), time: (function(){var s=document.getElementById('timeStart'),e=document.getElementById('timeEnd');var a=s&&s.value||'',b=e&&e.value||'';return (a||b)?(a+' ~ '+b):'';})() }) });
+    const certRes = await fetch(SCRIPT_URL, { method:'POST', body: JSON.stringify({ action:'cert', name, addr, area, date: reportDate(), certNo: (SELECTED?SELECTED.no:certNo()), time: (function(){var s=document.getElementById('timeStart'),e=document.getElementById('timeEnd');var a=s&&s.value||'',b=e&&e.value||'';return (a||b)?(a+' ~ '+b):'';})() }) });
     const certJson = await certRes.json();
     if(!certJson.ok || !certJson.certPdf){ throw new Error(certJson.error || '증명서 생성 실패'); }
     btn.textContent = '병합 중…';
@@ -574,10 +603,11 @@ async function saveToSheet(){
     const mergedB64 = await out.saveAsBase64();
     btn.textContent = '저장 중…';
     const rows = ROWS.map((r,i)=>({ loc:r.key, med:state[i].med, meth:state[i].meth, workers:state[i].workers, users:state[i].users })).filter((_,i)=>!state[i].skip);
-    const payload = { date: todayStr(), certNo: certNo(), facility:{ name, addr, area, biz }, rows, pdf: mergedB64 };
+    const payload = { date: reportDate(), certNo: (SELECTED?SELECTED.no:certNo()), ledgerRow: (SELECTED?SELECTED.row:''), facility:{ name, addr, area, biz }, rows, pdf: mergedB64 };
     const res = await fetch(SCRIPT_URL, { method:'POST', body: JSON.stringify(payload) });
     let ok = true; try{ const j = await res.json(); ok = j.ok !== false; }catch(_){}
     toast(ok ? '저장 완료 — 기록 탭에 PDF 링크가 들어갔습니다.' : '저장 실패 — 잠시 후 시트를 확인하세요.');
+    if(ok){ SELECTED=null; document.getElementById('certSelect').value=''; loadClients(); }
   }catch(err){ toast('실패: '+err.message); }
   finally{ btn.textContent = old; btn.disabled = false; }
 }
