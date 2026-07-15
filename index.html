@@ -445,44 +445,155 @@ function resizeToJpeg(dataUrl, max=1000, q=0.7){
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.style.opacity='1'; clearTimeout(t._t); t._t=setTimeout(()=>{t.style.opacity='0';},4500); }
 
 /* 양식(증명서+기록장)을 A4 PDF로 생성 → base64 반환 */
+function waitImages(root){
+  return Promise.all([...root.querySelectorAll('img')].map(im=>
+    im.complete ? Promise.resolve() : new Promise(r=>{ im.addEventListener('load',r,{once:true}); im.addEventListener('error',r,{once:true}); })
+  ));
+}
+/* 캔버스를 A4 비율(W×H)의 흰 캔버스에 맞춰 dataURL로 (sy부터 잘라 담음) */
+function canvasToPageUrl(canvas, W, H, sy){
+  const c=document.createElement('canvas'); c.width=W; c.height=H;
+  const ctx=c.getContext('2d'); ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,W,H);
+  const w=Math.min(W,canvas.width), h=Math.min(H,canvas.height-sy);
+  if(h>0) ctx.drawImage(canvas, 0,sy,w,h, 0,0,w,h);
+  return c.toDataURL('image/jpeg',0.85);
+}
+
+/* A4 한 장 크기의 실제 DOM 페이지를 만들어 행을 나눠 담고 페이지별로 캡처 */
 async function generateContentPages(){
   const fv = document.getElementById('formView');
   fv.classList.add('show');
   fv.style.position='fixed'; fv.style.left='-99999px'; fv.style.top='0'; fv.style.width='840px'; fv.style.zIndex='-1';
   const page = fv.querySelector('.page-log');
+  const PAGE_W = 794;
+  const PAGE_H = Math.round(PAGE_W*841.89/595.28); // A4 한 장 높이(px) ≈ 1123
+  const SCALE = 2;
+  const holder = document.createElement('div');
+  holder.style.cssText='position:fixed;left:-99999px;top:0;z-index:-1;width:'+PAGE_W+'px;background:#fff;';
   try{
-    page.style.width='794px';
-    const SCALE=2;
-    // 자를 수 있는 경계선(각 표 행의 하단) 위치를 픽셀로 수집
-    const pageTop=page.getBoundingClientRect().top;
-    const bounds=new Set();
-    page.querySelectorAll('table tr').forEach(tr=>{
-      const b=Math.round((tr.getBoundingClientRect().bottom - pageTop)*SCALE);
-      if(b>0) bounds.add(b);
-    });
-    const canvas = await html2canvas(page, { scale:SCALE, useCORS:true, backgroundColor:'#ffffff' });
-    const W=canvas.width, H=canvas.height;
-    const pageH=Math.round(W*(841.89/595.28)); // A4 한 장 높이(px)
-    const bl=[...bounds].filter(b=>b<=H).sort((a,b)=>a-b); bl.push(H);
-    const pages=[];
-    let start=0;
-    while(start < H){
-      let end=start+pageH;
-      if(end < H){
-        // start~end 사이에서 가장 아래쪽 '행 하단'에 맞춰 자름 (없으면 pageH에서 그대로)
-        let cut=-1;
-        for(const b of bl){ if(b>start && b<=end) cut=b; }
-        if(cut>start) end=cut;
-      } else { end=H; }
-      const h=end-start;
-      const c=document.createElement('canvas'); c.width=W; c.height=pageH;
-      const ctx=c.getContext('2d'); ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,W,pageH);
-      ctx.drawImage(canvas, 0,start,W,h, 0,0,W,h);
-      pages.push(c.toDataURL('image/jpeg',0.85));
-      start=end;
+    page.style.width=PAGE_W+'px';
+
+    /* 원본에서 내역서 표·머리글 열너비·행 목록 확보 */
+    const srcTables = [...page.querySelectorAll('table')];
+    const srcDetail = srcTables[srcTables.length-1];
+    const srcBodies = [...srcDetail.querySelectorAll('tbody')];
+    const srcRows   = [...srcBodies[srcBodies.length-1].children];
+    const srcHead   = [...srcDetail.querySelectorAll('tr')].find(tr=>tr.querySelector('.colw-loc'));
+    // auto 레이아웃이라 페이지마다 열너비가 달라질 수 있음 → 원본 실측값을 전 페이지에 고정(R3)
+    const widths = srcHead ? [...srcHead.children].map(td=>td.getBoundingClientRect().width) : [];
+    // 원본 .page-log가 holder와 같은 좌표에 겹쳐 있으면 캡처에 섞여 들어온다. 실측이 끝났으므로 숨김
+    fv.classList.remove('show');
+    document.body.appendChild(holder);
+
+    const shells = [];
+    /* .page-log를 복제해 내용만 갈아끼운 A4 한 장 (R1)
+       kind — first:제목+일시/작업자+조사내용+내역서(섹션헤더+머리글) / intro:내역서 없이 앞부분만
+              detailFirst:내역서(섹션헤더+머리글)만 / cont:내역서(머리글)만 */
+    function makeShell(kind){
+      const el = page.cloneNode(true);
+      const tables = [...el.querySelectorAll('table')];
+      let detail = tables[tables.length-1];
+      const bodies = [...detail.querySelectorAll('tbody')];
+      let body = bodies[bodies.length-1];
+      body.innerHTML='';
+      const withIntro   = (kind==='first' || kind==='intro');
+      const withSection = (kind==='first' || kind==='detailFirst');
+      if(!withIntro){
+        // 이어지는 페이지: 제목·일시/작업자표·조사내용표는 반복하지 않음(R3)
+        const t=el.querySelector('.log-title'); if(t) t.remove();
+        tables.slice(0,tables.length-1).forEach(x=>x.remove());
+        detail.style.marginTop='0';
+      }
+      if(!withSection){
+        const sh=detail.querySelector('.section-h'); if(sh&&sh.parentNode) sh.parentNode.remove();
+      }
+      if(widths.length){
+        const cg=document.createElement('colgroup');
+        widths.forEach(w=>{ const c=document.createElement('col'); c.style.width=w+'px'; cg.appendChild(c); });
+        detail.insertBefore(cg, detail.firstChild);
+        detail.style.tableLayout='fixed';
+      }
+      if(kind==='intro'){
+        // 첫 행이 1페이지에 안 들어가는 경우 → 내역서는 통째로 다음 장부터, 여기선 조사내용 표를 늘려 채움
+        detail.remove();
+        detail = tables[tables.length-2];
+        body = [...detail.querySelectorAll('tbody')].pop();
+      }
+      el.querySelectorAll('[id]').forEach(n=>n.removeAttribute('id'));
+      el.style.width=PAGE_W+'px'; el.style.minHeight=PAGE_H+'px';
+      const s={el,detail,body,over:false,detailOnly:(kind==='cont'||kind==='detailFirst')};
+      holder.appendChild(el); shells.push(s);
+      return s;
     }
-    return pages;
+    /* 페이지 바닥까지 남은 여백(px). 음수면 넘침 (min-height 때문에 scrollHeight로는 판정 불가) */
+    function gapOf(s){
+      const cs=getComputedStyle(s.el);
+      const padB=parseFloat(cs.paddingBottom)||0, bdB=parseFloat(cs.borderBottomWidth)||0;
+      return (s.el.getBoundingClientRect().top + PAGE_H - padB - bdB) - s.detail.getBoundingClientRect().bottom;
+    }
+
+    /* 첫 행이 1페이지에 들어가는지 먼저 확인 — 못 들어가면 1페이지는 내역서 없이 앞부분만 */
+    let cur = makeShell('first');
+    if(srcRows.length){
+      const probe = srcRows[0].cloneNode(true);
+      cur.body.appendChild(probe);
+      const fits = gapOf(cur) >= 0;
+      cur.body.removeChild(probe);
+      if(!fits){
+        cur.el.remove(); shells.pop();
+        makeShell('intro');            // 1페이지
+        cur = makeShell('detailFirst'); // 2페이지부터 내역서
+      }
+    }
+
+    /* 행을 하나씩 담아보고 넘치면 다음 페이지로 (행은 쪼개지 않음, R2) */
+    for(const src of srcRows){
+      const tr = src.cloneNode(true);
+      cur.body.appendChild(tr);
+      if(gapOf(cur) < 0){
+        // 내역서 전용 페이지에 혼자 담고도 넘치면 그 행은 한 페이지보다 큼(R5)
+        if(cur.detailOnly && cur.body.children.length === 1){
+          cur.over = true;
+        } else {
+          cur.body.removeChild(tr);
+          cur = makeShell('cont');
+          cur.body.appendChild(tr);
+          if(gapOf(cur) < 0) cur.over = true;
+        }
+      }
+    }
+
+    /* 마지막 페이지를 뺀 각 페이지는 마지막 행을 늘려 바닥까지 채움 (R4) */
+    for(let i=0;i<shells.length;i++){
+      const s=shells[i];
+      if(s.over || i===shells.length-1) continue;   // 마지막 페이지는 늘리지 않음
+      const last=s.body.lastElementChild; if(!last) continue;
+      let g=gapOf(s); if(g<=0) continue;
+      [...last.children].forEach(td=>{ td.style.verticalAlign='top'; }); // 내용은 위쪽 정렬 유지
+      last.style.height = Math.floor(last.getBoundingClientRect().height + g)+'px';
+      let guard=0; g=gapOf(s);
+      while(g<0 && guard++<30){                     // 반올림 오차로 넘치면 그만큼 줄임
+        last.style.height = Math.max(1, parseFloat(last.style.height)+g)+'px';
+        g=gapOf(s);
+      }
+    }
+
+    /* 페이지별로 각각 캡처 (R6) — 옆 페이지가 캡처 영역에 섞이지 않도록 한 장씩만 붙여서 */
+    const CW=PAGE_W*SCALE, CH=PAGE_H*SCALE;
+    const out=[];
+    shells.forEach(s=>s.el.remove());
+    for(const s of shells){
+      if(!s.over) s.el.style.height=PAGE_H+'px';
+      holder.appendChild(s.el);
+      await waitImages(s.el);
+      const canvas = await html2canvas(s.el, { scale:SCALE, useCORS:true, backgroundColor:'#ffffff' });
+      s.el.remove();
+      if(s.over){ for(let y=0;y<canvas.height;y+=CH) out.push(canvasToPageUrl(canvas,CW,CH,y)); }
+      else out.push(canvasToPageUrl(canvas,CW,CH,0));
+    }
+    return out;
   } finally {
+    holder.remove();
     page.style.width='';
     fv.classList.remove('show');
     fv.style.position=''; fv.style.left=''; fv.style.top=''; fv.style.width=''; fv.style.zIndex='';
