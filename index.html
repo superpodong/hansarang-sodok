@@ -450,6 +450,25 @@ function waitImages(root){
     im.complete ? Promise.resolve() : new Promise(r=>{ im.addEventListener('load',r,{once:true}); im.addEventListener('error',r,{once:true}); })
   ));
 }
+/* html2canvas 는 object-fit 을 무시하고 이미지를 박스 크기에 '늘려서' 그린다(사진이 찌그러짐).
+   → 박스 비율에 맞춰 가운데를 미리 잘라둔 이미지를 넣어두면, 늘려 그려도 결과가 object-fit:cover 와 같아진다. */
+function coverCropSrc(src, bw, bh){
+  return new Promise(res=>{
+    const img=new Image();
+    img.onload=()=>{
+      const sw=img.naturalWidth, sh=img.naturalHeight;
+      if(!sw||!sh){ res(src); return; }
+      const k=Math.max(bw/sw, bh/sh);                 // cover 와 동일한 배율
+      const cw=Math.min(sw, bw/k), ch=Math.min(sh, bh/k);
+      const c=document.createElement('canvas');
+      c.width=Math.max(1,Math.round(bw*2)); c.height=Math.max(1,Math.round(bh*2)); // 2배 해상도로 보존
+      c.getContext('2d').drawImage(img, (sw-cw)/2,(sh-ch)/2,cw,ch, 0,0,c.width,c.height);
+      res(c.toDataURL('image/jpeg',0.85));
+    };
+    img.onerror=()=>res(src);
+    img.src=src;
+  });
+}
 /* 캔버스를 A4 비율(W×H)의 흰 캔버스에 맞춰 dataURL로 (sy부터 잘라 담음) */
 function canvasToPageUrl(canvas, W, H, sy){
   const c=document.createElement('canvas'); c.width=W; c.height=H;
@@ -521,8 +540,8 @@ async function generateContentPages(){
       }
       el.querySelectorAll('[id]').forEach(n=>n.removeAttribute('id'));
       el.style.width=PAGE_W+'px'; el.style.minHeight=PAGE_H+'px';
-      const s={el,detail,body,over:false,detailOnly:(kind==='cont'||kind==='detailFirst')};
-      holder.appendChild(el); shells.push(s);
+      const s={el,detail,body,kind,over:false,detailOnly:(kind==='cont'||kind==='detailFirst')};
+      holder.appendChild(el);
       return s;
     }
     /* 페이지 바닥까지 남은 여백(px). 음수면 넘침 (min-height 때문에 scrollHeight로는 판정 불가) */
@@ -532,47 +551,131 @@ async function generateContentPages(){
       return (s.el.getBoundingClientRect().top + PAGE_H - padB - bdB) - s.detail.getBoundingClientRect().bottom;
     }
 
-    /* 첫 행이 1페이지에 들어가는지 먼저 확인 — 못 들어가면 1페이지는 내역서 없이 앞부분만 */
-    let cur = makeShell('first');
-    if(srcRows.length){
-      const probe = srcRows[0].cloneNode(true);
-      cur.body.appendChild(probe);
-      const fits = gapOf(cur) >= 0;
-      cur.body.removeChild(probe);
-      if(!fits){
-        cur.el.remove(); shells.pop();
-        makeShell('intro');            // 1페이지
-        cur = makeShell('detailFirst'); // 2페이지부터 내역서
+    /* ===== 용량·행 자연높이 측정 (R7 1·2단계) ===== */
+    const probes = { first:makeShell('first'), cont:makeShell('cont'), detailFirst:makeShell('detailFirst') };
+    // 행이 없는 셸의 남은 높이 = 그 종류 페이지가 행에 쓸 수 있는 용량
+    const cap = { first:gapOf(probes.first), cont:gapOf(probes.cont), detailFirst:gapOf(probes.detailFirst) };
+    const meas = makeShell('cont');
+    const measRows = srcRows.map(r=>r.cloneNode(true));
+    measRows.forEach(c=>meas.body.appendChild(c));
+    const heights = measRows.map(c=>c.getBoundingClientRect().height); // 확대 전 자연 높이
+    const g0 = meas.el.querySelector('.fphotos');
+    const gridW = g0 ? g0.getBoundingClientRect().width : 0;           // 사진 격자 폭 (R8 계산용)
+    Object.values(probes).forEach(s=>s.el.remove()); meas.el.remove();
+
+    /* 첫 행이 1페이지에 안 들어가면 1페이지는 내역서 없이 앞부분만 (R9 소개 페이지) */
+    const introMode = heights.length>0 && heights[0] > cap.first;
+    const p0 = introMode ? 1 : 0;
+    const capOf = (p)=> introMode ? (p===1 ? cap.detailFirst : cap.cont)
+                                  : (p===0 ? cap.first       : cap.cont);
+
+    /* ===== 균등 분배 (R7 3단계) — 순서 유지, 페이지 수를 늘리지 않는 선에서 최대 높이 최소화 ===== */
+    function pagesFor(limit, collect){
+      const pages=[]; let cur=[]; let p=p0, used=0;
+      heights.forEach((h,i)=>{
+        const c=Math.min(limit, capOf(p));
+        if(cur.length && used+h > c+0.5){ pages.push(cur); cur=[]; p++; used=0; }
+        cur.push(i); used+=h;   // 한 행이 용량보다 크면 혼자 담김 → 나중에 R5 슬라이스
+      });
+      if(cur.length) pages.push(cur);
+      return collect ? pages : pages.length;
+    }
+    let groups;
+    if(!heights.length){ groups=[[]]; }
+    else{
+      const N = pagesFor(Infinity, false);            // 용량만 지킨 최소 페이지 수
+      let lo=Math.max(...heights), hi=heights.reduce((a,b)=>a+b,0);
+      while(lo<hi){                                    // 페이지 수를 N 이하로 유지하는 가장 낮은 상한
+        const mid=Math.floor((lo+hi)/2);
+        if(pagesFor(mid,false)<=N) hi=mid; else lo=mid+1;
       }
+      groups = pagesFor(lo, true);
     }
 
-    /* 행을 하나씩 담아보고 넘치면 다음 페이지로 (행은 쪼개지 않음, R2) */
-    for(const src of srcRows){
-      const tr = src.cloneNode(true);
-      cur.body.appendChild(tr);
-      if(gapOf(cur) < 0){
-        // 내역서 전용 페이지에 혼자 담고도 넘치면 그 행은 한 페이지보다 큼(R5)
-        if(cur.detailOnly && cur.body.children.length === 1){
-          cur.over = true;
-        } else {
-          cur.body.removeChild(tr);
-          cur = makeShell('cont');
-          cur.body.appendChild(tr);
-          if(gapOf(cur) < 0) cur.over = true;
+    /* 분배 결과대로 페이지 생성 */
+    if(introMode) shells.push(makeShell('intro'));
+    groups.forEach((idxs,gi)=>{
+      const p = p0+gi;
+      const kind = introMode ? (p===1?'detailFirst':'cont') : (p===0?'first':'cont');
+      const s = makeShell(kind);
+      idxs.forEach(i=>s.body.appendChild(srcRows[i].cloneNode(true)));
+      shells.push(s);
+    });
+    shells.forEach(s=>{ if(gapOf(s)<0) s.over=true; });  // 한 행이 한 페이지보다 큼 → 슬라이스(R5)
+
+    /* ===== 사진 확대로 채우기 (R8, R4 대체) =====
+       사진 폭은 열 너비에 묶여 있어 높이만 키우면 object-fit:cover 가 좌우를 더 잘라낸다.
+       그래서 '현행 박스비(약 1:1)를 유지한 채 키우는' 1열(폭 2배 → 높이도 2배)을 우선하고,
+       실제 잘림 비율을 재서 현행보다 크게 나빠지지 않는 범위에서만 크기를 조정한다. */
+    const K_MAX = 1.6;          // 배율 상한
+    const CROP_MARGIN = 0.06;   // 현행 대비 허용할 추가 잘림 (6%p)
+    const imgW2 = Math.max(1,(gridW-6)/2);
+    function setPhotos(s, cols, h){
+      s.el.querySelectorAll('.fphotos').forEach(g=>{
+        g.style.gridTemplateColumns = (cols===1) ? '1fr' : '1fr 1fr';
+        g.querySelectorAll('img').forEach(im=>{ im.style.height = h+'px'; });
+      });
+    }
+    /* box(bw×bh)에 object-fit:cover 로 담을 때 잘려나가는 최대 비율 */
+    function worstCrop(s, bw, bh){
+      let worst=0;
+      s.el.querySelectorAll('.fphotos img').forEach(im=>{
+        const sw=im.naturalWidth, sh=im.naturalHeight;
+        if(!sw||!sh) return;
+        const k=Math.max(bw/sw, bh/sh);
+        worst=Math.max(worst, 1 - Math.min(1,(bw/k)/sw)*Math.min(1,(bh/k)/sh));
+      });
+      return worst;
+    }
+    await waitImages(holder);   // naturalWidth 를 읽으려면 로드되어 있어야 함
+    for(const s of shells){
+      if(s.over || s.kind==='intro') continue;
+      if(!s.el.querySelector('.fphotos img')) continue;   // 사진 없는 페이지는 그대로
+      const budget = worstCrop(s, imgW2, 112) + CROP_MARGIN;   // 현행 잘림 + 여유
+      let best=null;
+      for(const cols of [1,2]){                            // 1열 먼저 — 같은 조건이면 덜 잘리는 쪽
+        const bw = (cols===1) ? gridW : imgW2;
+        const neutral = Math.round(bw * 112 / imgW2);      // 현행 박스비를 그대로 유지하는 높이
+        const minH = (cols===1) ? Math.max(40,Math.round(neutral*0.6)) : 112;  // 2열은 현행보다 줄이지 않음
+        const maxH = Math.round(neutral*K_MAX);
+        let bLo=null,bHi=null;                             // 잘림 예산을 지키는 높이 구간
+        for(let h=minH; h<=maxH; h++){
+          if(worstCrop(s,bw,h) <= budget+1e-9){ if(bLo===null) bLo=h; bHi=h; }
         }
+        if(bLo===null) continue;
+        setPhotos(s,cols,bLo);
+        if(gapOf(s)<0) continue;                           // 예산 내 최소 크기로도 안 들어가는 레이아웃
+        let lo=bLo, hi=bHi;
+        while(lo<hi){                                      // 들어가는 최대 크기 (높이↑ → 페이지↑, 단조)
+          const mid=Math.ceil((lo+hi)/2);
+          setPhotos(s,cols,mid);
+          if(gapOf(s)>=0) lo=mid; else hi=mid-1;
+        }
+        setPhotos(s,cols,lo);
+        const leftover=gapOf(s);
+        if(!best || leftover<best.leftover) best={cols,h:lo,leftover};
       }
+      setPhotos(s, best?best.cols:2, best?best.h:112);     // 상한에 걸려 다 못 채우면 여백은 그대로 둠
+      s.box = { w: (best&&best.cols===1)?gridW:imgW2, h: best?best.h:112 };
     }
 
-    /* 마지막 페이지를 뺀 각 페이지는 마지막 행을 늘려 바닥까지 채움 (R4) */
-    for(let i=0;i<shells.length;i++){
-      const s=shells[i];
-      if(s.over || i===shells.length-1) continue;   // 마지막 페이지는 늘리지 않음
+    /* 확정된 박스 비율로 사진을 미리 잘라 넣는다 (html2canvas 의 object-fit 무시 → 찌그러짐 방지) */
+    for(const s of shells){
+      const imgs=[...s.el.querySelectorAll('.fphotos img')];
+      if(!imgs.length) continue;
+      const b = s.box || { w:imgW2, h:112 };
+      for(const im of imgs) im.src = await coverCropSrc(im.src, b.w, b.h);
+    }
+
+    /* 소개 페이지는 늘릴 데이터 행이 없으므로 조사내용 표를 늘려 채움 (R9) */
+    for(const s of shells){
+      if(s.kind!=='intro') continue;
       const last=s.body.lastElementChild; if(!last) continue;
       let g=gapOf(s); if(g<=0) continue;
-      [...last.children].forEach(td=>{ td.style.verticalAlign='top'; }); // 내용은 위쪽 정렬 유지
+      [...last.children].forEach(td=>{ td.style.verticalAlign='top'; });
       last.style.height = Math.floor(last.getBoundingClientRect().height + g)+'px';
       let guard=0; g=gapOf(s);
-      while(g<0 && guard++<30){                     // 반올림 오차로 넘치면 그만큼 줄임
+      while(g<0 && guard++<30){
         last.style.height = Math.max(1, parseFloat(last.style.height)+g)+'px';
         g=gapOf(s);
       }
